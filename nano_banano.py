@@ -229,7 +229,7 @@ class ComfyUI_NanoBanana:
             
         return final_prompt
 
-    def call_nano_banana_api(self, prompt, encoded_images, temperature, batch_count, enable_safety, aspect_ratio=None):
+    def call_nano_banana_api(self, prompt, encoded_images, temperature, batch_count, enable_safety):
         """Make API call to the Gemini 2.5 Flash Image model"""
         
         try:
@@ -251,16 +251,11 @@ class ComfyUI_NanoBanana:
                     if cat.name != "HARM_CATEGORY_UNSPECIFIED"
                 ]
 
-            config_kwargs = {
-                "temperature": temperature,
-                "response_modalities": ["TEXT", "IMAGE"],
-                "safety_settings": safety_settings,
-            }
-
-            if aspect_ratio:
-                config_kwargs["aspect_ratio"] = aspect_ratio
-
-            generation_config = types.GenerateContentConfig(**config_kwargs)
+            generation_config = types.GenerateContentConfig(
+                temperature=temperature,
+                response_modalities=['TEXT', 'IMAGE'],
+                safety_settings=safety_settings,
+            )
 
             # Build prompt parts using official SDK helpers
             parts = [types.Part.from_text(text=prompt)]
@@ -400,9 +395,8 @@ class ComfyUI_NanoBanana:
             operation_log += f"Prompt: {final_prompt[:150]}...\n\n"
             
             # Make API call
-            api_aspect_ratio = None if operation == "edit" else aspect_ratio
             generated_images, api_log = self.call_nano_banana_api(
-                final_prompt, encoded_images, temperature, batch_count, enable_safety, api_aspect_ratio
+                final_prompt, encoded_images, temperature, batch_count, enable_safety
             )
             
             operation_log += api_log
