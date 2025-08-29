@@ -230,34 +230,47 @@ class ComfyUI_NanoBanana:
         return final_prompt
 
     def call_nano_banana_api(self, prompt, encoded_images, temperature, batch_count, enable_safety):
-        """Make API call to Gemini 2.5 Flash Image using the working v6 approach"""
+        """Make API call to the Gemini 2.5 Flash Image model"""
         
         try:
-            # Set up the Google Generative AI client (like in v6)
+            # Set up the Google Generative AI client
             from google import genai
             from google.genai import types
-            
+
             client = genai.Client(api_key=self.api_key)
-            
-            # Set up generation config with response_modalities for image generation
+
+            # Configure the request to return both text and image modalities
+            safety_settings = None
+            if not enable_safety:
+                safety_settings = [
+                    types.SafetySetting(
+                        category=cat,
+                        threshold=types.HarmBlockThreshold.BLOCK_NONE,
+                    )
+                    for cat in types.HarmCategory
+                    if cat.name != "HARM_CATEGORY_UNSPECIFIED"
+                ]
+
             generation_config = types.GenerateContentConfig(
                 temperature=temperature,
-                response_modalities=['Text', 'Image']  # Critical for image generation
+                response_modalities=['TEXT', 'IMAGE'],
+                safety_settings=safety_settings,
             )
-            
-            # Set up content with proper encoding (like v6 does)
-            parts = [{"text": prompt}]
-            
+
+            # Build prompt parts using official SDK helpers
+            parts = [types.Part.from_text(text=prompt)]
+
             for img_data in encoded_images:
-                parts.append({
-                    "inline_data": {
-                        "mime_type": "image/png",
-                        "data": img_data["inline_data"]["data"]
-                    }
-                })
-            
-            content_parts = [{"parts": parts}]
-            
+                image_bytes = base64.b64decode(img_data["inline_data"]["data"])
+                parts.append(
+                    types.Part.from_bytes(
+                        data=image_bytes,
+                        mime_type="image/png",
+                    )
+                )
+
+            content_parts = [types.Content(role="user", parts=parts)]
+
             # Track all generated images
             all_generated_images = []
             operation_log = ""
@@ -267,7 +280,7 @@ class ComfyUI_NanoBanana:
                 try:
                     # Generate content using the working v6 approach
                     response = client.models.generate_content(
-                        model="gemini-2.0-flash-exp-image-generation",
+                        model="models/gemini-2.5-flash-image-preview",
                         contents=content_parts,
                         config=generation_config
                     )
